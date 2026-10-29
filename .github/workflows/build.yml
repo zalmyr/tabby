@@ -313,6 +313,8 @@ jobs:
             rust_triple: x86_64-pc-windows-msvc
           - arch: arm64
             rust_triple: aarch64-pc-windows-msvc
+          - arch: ia32
+            rust_triple: i686-pc-windows-msvc
       fail-fast: false
 
     env:
@@ -402,6 +404,8 @@ jobs:
       run: |
         if [ "$ARCH" = "arm64" ]; then
           curl -sSL -o build/vc_redist.exe "https://aka.ms/vs/17/release/vc_redist.arm64.exe"
+        elif [ "$ARCH" = "ia32" ]; then
+          curl -sSL -o build/vc_redist.exe "https://aka.ms/vs/17/release/vc_redist.x86.exe"
         else
           curl -sSL -o build/vc_redist.exe "https://aka.ms/vs/17/release/vc_redist.x64.exe"
         fi
@@ -411,6 +415,7 @@ jobs:
       run: |
         # extras/UAC.exe used to be a checked-in prebuilt, so source fixes never shipped.
         # The solution has no ARM64 config; the x64 binary runs under emulation on ARM64.
+        $platform = if ("$env:ARCH" -eq "ia32") { "x86" } else { "x64" }
         $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
         $msbuild = & $vswhere -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
         if (-not $msbuild) { throw "MSBuild not found" }
@@ -418,7 +423,7 @@ jobs:
         # The project pins VS2017 (v141) and SDK 10.0.17763; retarget to whatever the runner has.
         & $msbuild tabby-uac\UAC.sln `
           /p:Configuration=Release `
-          /p:Platform=x64 `
+          /p:Platform=$platform `
           /p:PlatformToolset=v143 `
           /p:WindowsTargetPlatformVersion=10.0 `
           /verbosity:minimal
@@ -441,6 +446,21 @@ jobs:
         node scripts/prepackage-plugins.mjs
       env:
         ARCH: ${{matrix.arch}}
+
+    - name: Build 32-bit russh binding
+      # russh only publishes x64/arm64 Windows binaries
+      if: matrix.arch == 'ia32'
+      shell: bash
+      run: |
+        git clone https://github.com/Eugeny/russh-napi "$RUNNER_TEMP/russh-napi"
+        cd "$RUNNER_TEMP/russh-napi"
+        git checkout 4b226eaa3f12ca4f5435ee73a295f1c58e0a9ad1 # published as russh@0.1.38
+        rustup target add i686-pc-windows-msvc
+        yarn install --frozen-lockfile --ignore-scripts
+        npx napi build --platform --release --target i686-pc-windows-msvc
+        cd "$GITHUB_WORKSPACE"
+        cp "$RUNNER_TEMP/russh-napi/russh.win32-ia32-msvc.node" app/node_modules/russh/
+        node scripts/patch-russh-ia32.mjs
 
     - name: Build packages without signing
       run: node scripts/build-windows.mjs
@@ -502,7 +522,7 @@ jobs:
         # Copy VC Runtime DLLs from Visual Studio
         mkdir "vc-runtime" -Force | Out-Null
 
-        $arch = if ("$env:ARCH" -eq "x64") { "x64" } else { "arm64" }
+        $arch = @{ x64 = "x64"; arm64 = "arm64"; ia32 = "x86" }["$env:ARCH"]
         $crtDir = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\*\VC\Redist\MSVC\*\$arch\Microsoft.VC*.CRT" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($crtDir) {
           @("vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll") | ForEach-Object {

@@ -22,12 +22,14 @@ export class WindowsStockShellsProvider extends WindowsBaseShellProvider {
             return []
         }
 
+        // clink names its 32-bit build x86
+        const clinkExe = `clink_${process.arch === 'ia32' ? 'x86' : process.arch}.exe`
         let clinkPath = path.join(
             path.dirname(this.electron.app.getPath('exe')),
             'resources',
             'extras',
             'clink',
-            `clink_${process.arch}.exe`,
+            clinkExe,
         )
 
         if (process.env.TABBY_DEV) {
@@ -36,7 +38,7 @@ export class WindowsStockShellsProvider extends WindowsBaseShellProvider {
                 '..', '..', '..',
                 'extras',
                 'clink',
-                `clink_${process.arch}.exe`,
+                clinkExe,
             )
         }
         const shells: Shell[] = [

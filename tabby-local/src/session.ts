@@ -116,8 +116,8 @@ export class Session extends BaseSession {
                 cwd,
                 env: env,
                 // node-pty's bundled ConPTY passes VT mouse tracking through to fullscreen TUIs,
-                // which the one built into Windows swallows. It needs Windows 10 2004+.
-                useConptyDll: this.config.store.terminal.useConPTY && isWindowsBuild(WIN_BUILD_BUNDLED_CONPTY_SUPPORTED),
+                // which the one built into Windows swallows. It needs Windows 10 2004+ and isn't shipped for 32-bit.
+                useConptyDll: this.config.store.terminal.useConPTY && isWindowsBuild(WIN_BUILD_BUNDLED_CONPTY_SUPPORTED) && process.arch !== 'ia32',
             }
 
             try {

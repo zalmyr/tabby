@@ -15,12 +15,14 @@ builder({
     dir: true,
     win: ['nsis', 'zip'],
     arm64: process.env.ARCH === 'arm64',
+    ia32: process.env.ARCH === 'ia32',
     config: {
         extraMetadata: {
             version: vars.version,
         },
         publish: process.env.KEYGEN_TOKEN ? [
-            vars.keygenConfig,
+            // no Keygen product for 32-bit Windows
+            ...vars.keygenConfig.product ? [vars.keygenConfig] : [],
             {
                 provider: 'github',
                 channel: `latest-${process.env.ARCH}`,

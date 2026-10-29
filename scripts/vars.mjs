@@ -76,6 +76,6 @@ export const keygenConfig = {
     }[process.platform],
 }
 
-if (!keygenConfig.product) {
+if (!keygenConfig.product && !(process.platform === 'win32' && process.env.ARCH === 'ia32')) {
     throw new Error(`Unrecognized platform ${process.platform}/${process.env.ARCH}`)
 }
