@@ -10,7 +10,18 @@ const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
 
 const electronInfo = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../node_modules/electron/package.json')))
 
-export let version = childProcess.execSync('git describe --tags', { encoding:'utf-8' })
+function describe () {
+    try {
+        return childProcess.execSync('git describe --tags', { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] })
+    } catch {
+        // untagged clones (e.g. forks without upstream tags): build as a 0.0.x nightly
+        const count = childProcess.execSync('git rev-list --count HEAD', { encoding: 'utf-8' }).trim()
+        const sha = childProcess.execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim()
+        return `v0.0.0-${count}-g${sha}`
+    }
+}
+
+export let version = describe()
 version = version.substring(1).trim()
 version = version.replace('-', '-c')
 
